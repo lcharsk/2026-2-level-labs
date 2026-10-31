@@ -320,6 +320,9 @@ class NGramLanguageModel:
             encoded_corpus (tuple | None): Encoded text
             n_gram_size (int): A size of n-grams to use for language modelling
         """
+        self._encoded_corpus = encoded_corpus
+        self.__n_gram_size = n_gram_size
+        self._n_gram_frequencies = {}
 
     def get_n_gram_size(self) -> int:  # type: ignore[empty-body]
         """
@@ -328,6 +331,7 @@ class NGramLanguageModel:
         Returns:
             int: Size of stored n_grams
         """
+        return self.__n_gram_size
 
     def set_n_grams(self, frequencies: dict) -> None:
         """
@@ -349,6 +353,25 @@ class NGramLanguageModel:
         In case of corrupt input arguments or methods used return None,
         False is returned
         """
+        n_grams = self._extract_n_grams(self._encoded_corpus)
+        if n_grams is None:
+            return False
+
+        total_freq_ngrams = {}
+        for element in n_grams:
+            total_freq_ngrams[element] = n_grams.count(element)
+
+        context_counts = {}
+        for n_gram in n_grams:
+            context = n_gram[:-1]
+            context_counts[context] = context_counts.get(context, 0) + 1
+
+        result_frequencies = {}
+        for n_gram, freq in total_freq_ngrams.items():
+            result_frequencies[n_gram] = freq / context_counts[n_gram[:-1]]
+
+        self._n_gram_frequencies = result_frequencies
+        return True
 
     def generate_next_token(self, sequence: tuple[int, ...]) -> dict | None:
         """
@@ -377,7 +400,22 @@ class NGramLanguageModel:
 
         In case of corrupt input arguments, None is returned
         """
+        if not (isinstance(encoded_corpus, tuple) and encoded_corpus
+        and all(isinstance(element, int) for element in encoded_corpus)
+        ):
+            return None
 
+        n_grams = []
+
+        for i, element in enumerate(encoded_corpus):
+            count = self.__n_gram_size
+            n_gramma = []
+            if i+count <= len(encoded_corpus):
+                for idx in range(i, i+count):
+                    n_gramma.append(encoded_corpus[idx])
+                n_grams.append(tuple(n_gramma))
+
+        return tuple(n_grams)
 
 class GreedyTextGenerator:
     """
